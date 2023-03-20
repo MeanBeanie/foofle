@@ -13,6 +13,10 @@ use tui::{
     Frame, Terminal,
 };
 
+#[allow(non_camel_case_types, unused_imports, unused_parens)]
+
+
+
 #[derive(Default, PartialEq)]
 enum Mode {
     #[default]
@@ -132,13 +136,30 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                     }
                 }
                 if let KeyCode::Char('k') = key.code {
-                    if app.col + 1 < (app.contents.len() as i64) {
+                    if app.col + 1 < (strToArray(&app.contents).len() as i64) {
                         app.col += 1;
                     }
                     else {
-                        app.col = (app.contents.len() - 1) as i64;
+                        app.col = (strToArray(&app.contents).len() - 1) as i64;
                     }
                 }
+                if let KeyCode::Char('l') = key.code {
+                    if app.row + 1 < (strToArray(&app.contents)[app.col as usize].len() as i64) {
+                        app.row += 1;
+                    }
+                    else {
+                        app.row = (strToArray(&app.contents)[app.col as usize].len() - 1) as i64;
+                    }
+                }
+
+                if let KeyCode::Char('h') = key.code {
+                    if app.row - 1 >= 0 {
+                        app.row -= 1;
+                    }
+                    else {
+                        app.row = 0;
+                    }
+                } 
                 if let KeyCode::Char('i') = key.code {
                     app.mode = Mode::i;
                 }
@@ -149,7 +170,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                     for i in 0..contentsArray.len() {
                         for r in 0..contentsArray[i].len() {
                             if i == (app.col as usize) && r == (app.row as usize) {
-                                contentsArray[i].insert(r, c);
+                                contentsArray[i].insert((app.row as usize), c);
                             }
                         }
                     }
