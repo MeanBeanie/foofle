@@ -3,7 +3,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{error::Error, io, fs, env};
+use std::{error::Error, io, fs, env, time, time::Instant};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout},
@@ -23,9 +23,10 @@ enum Mode {
 struct App {
     path: String,
     contents: String,
-    row: i32,
-    col: i32,
+    row: i64,
+    col: i64,
     mode: Mode,
+    start_time: Instant, 
 }
 
 impl Default for App {
@@ -36,13 +37,14 @@ impl Default for App {
             row: 0,
             col: 0,
             mode: Mode::n,
+            start_time: Instant::now(),
         }
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
-     
+    
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -78,6 +80,39 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn strToArray(input: &str) -> Vec< Vec<char> > {
+    let mut result = Vec::new();
+    let mut temp = Vec::new();
+    for c in input.chars() {
+        if c == '\n' {
+            result.push(temp.clone());
+            temp.clear();
+        }
+        else{
+            temp.push(c);
+        }
+    }
+
+    return result;
+}
+
+fn arrayToStr(input: Vec< Vec<char> >) -> String {
+    let mut result = String::new();
+    
+    for i in 0..input.len() {
+        for j in 0..input[i].len() {
+            let mut temp = format!("{}", result);
+            temp = temp + &input[i][j].to_string();
+            result = temp.to_string();
+        }
+        let mut temp = format!("{}", result);
+        temp = temp + "\n";
+        result = temp.to_string();
+    }
+
+    return result;
+}
+
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
     loop { 
         if let Event::Key(key) = event::read()? {
@@ -88,15 +123,37 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                 if let KeyCode::Char('w') = key.code {
                     fs::write(format!("{}", app.path), format!("{}", app.contents)).expect("failed to write to file");
                 }
+                if let KeyCode::Char('j') = key.code {
+                    if app.col - 1 >= 0 {
+                        app.col -= 1;
+                    }
+                    else{
+                        app.col = 0;
+                    }
+                }
+                if let KeyCode::Char('k') = key.code {
+                    if app.col + 1 < (app.contents.len() as i64) {
+                        app.col += 1;
+                    }
+                    else {
+                        app.col = (app.contents.len() - 1) as i64;
+                    }
+                }
                 if let KeyCode::Char('i') = key.code {
                     app.mode = Mode::i;
                 }
             }
             else if app.mode == Mode::i {
                 if let KeyCode::Char(c) = key.code {
-                    let mut temp = format!("{}", app.contents);
-                    temp = temp + &c.to_string();
-                    app.contents = temp.to_string();
+                    let mut contentsArray = strToArray(&format!("{}", app.contents));
+                    for i in 0..contentsArray.len() {
+                        for r in 0..contentsArray[i].len() {
+                            if i == (app.col as usize) && r == (app.row as usize) {
+                                contentsArray[i].insert(r, c);
+                            }
+                        }
+                    }
+                    app.contents = arrayToStr(contentsArray);
                 }
                 if let KeyCode::Enter = key.code {
                     let mut temp = format!("{}", app.contents);
@@ -114,6 +171,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
 }
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+    let time = app.start_time.elapsed().as_secs();
     let vert_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Max(10), Constraint::Min(3)].as_ref())
@@ -121,7 +179,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     
     let contents = Paragraph::new(format!("{}", app.contents))
         .block(Block::default()
-                .title(format!("{}", app.path))
+                .title(format!("{}-|{}:{}|-[{}]", app.path, app.col, app.row, time))
                 .title_alignment(Alignment::Center)
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
