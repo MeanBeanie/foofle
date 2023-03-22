@@ -117,7 +117,8 @@ fn arrayToStr(input: Vec< Vec<char> >) -> String {
     return result;
 }
 
-fn arrayToSpans(col: i64, row: i64, input: Vec< Vec<char> >) -> Spans<'static> {
+fn arrayToSpans(col: i64, row: i64, input: Vec< Vec<char> >) -> Vec<Spans<'static>> {
+    let mut result_real = Vec::new();
     let mut result = Vec::new();
     for i in 0..input.len(){
         for j in 0..input[i].len(){
@@ -128,9 +129,11 @@ fn arrayToSpans(col: i64, row: i64, input: Vec< Vec<char> >) -> Spans<'static> {
                 result.push(Span::raw(input[i][j].to_string()));
             }
         }
+        result_real.push(Spans::from(result.clone()));
+        result.clear();
     }
     
-    return Spans::from(result);
+    return result_real;
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
@@ -184,14 +187,12 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                 if let KeyCode::Char(c) = key.code {
                     let mut contentsArray = strToArray(&format!("{}", app.contents));
                     for i in 0..contentsArray.len() {
-                        for r in 0..contentsArray[i].len() {
+                        'r: for r in 0..contentsArray[i].len() {
                             if i == (app.col as usize) {
                                 if r == (app.row as usize) {
                                     contentsArray[i].insert((app.row as usize), c);
-                                }
-                                if r+1 == (app.row as usize) {
-                                    contentsArray[i].push(c);
-                                }
+                                    break 'r;
+                                } 
                             }
                         }
                     }
@@ -206,7 +207,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                 if let KeyCode::Backspace = key.code {
                     let mut temp = strToArray(&format!("{}", app.contents));
                     if(app.row - 1 >= 0){
-                        temp[app.col as usize].remove(app.row as usize);
+                        temp[app.col as usize].remove((app.row - 1) as usize);
                         app.row -= 1;
                     }
                     app.contents = arrayToStr(temp);
